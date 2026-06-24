@@ -1,124 +1,158 @@
-﻿using System;
+﻿using GildedRose.Console.Infrastructure;
+using GildedRose.Domain.Models;
+using GildedRose.Domain.Repositories;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Xml.Linq;
 
 namespace GildedRose.Console
 {
     class Program
     {
-        IList<Item> Items;
+        private readonly IItemRepository _itemRepository;
+
+        public Program(IItemRepository itemRepository)
+        {
+            _itemRepository = itemRepository;
+        }
         static void Main(string[] args)
         {
             System.Console.WriteLine("OMGHAI!");
 
-            var app = new Program()
-            {
-                Items = new List<Item>
-                                          {
-                                              new Item {Name = "+5 Dexterity Vest", SellIn = 10, Quality = 20},
-                                              new Item {Name = "Aged Brie", SellIn = 2, Quality = 0},
-                                              new Item {Name = "Elixir of the Mongoose", SellIn = 5, Quality = 7},
-                                              new Item {Name = "Sulfuras, Hand of Ragnaros", SellIn = 0, Quality = 80},
-                                              new Item
-                                                  {
-                                                      Name = "Backstage passes to a TAFKAL80ETC concert",
-                                                      SellIn = 15,
-                                                      Quality = 20
-                                                  },
-                                              new Item {Name = "Conjured Mana Cake", SellIn = 3, Quality = 6}
-                                          }
+            IItemRepository repository = new InMemoryItemRepository();
+            var app = new Program(repository);
 
-            };
+            IList<Item> Items = app._itemRepository.GetInitialItmes();
 
-            app.UpdateQuality();
+            app.UpdateQuality(Items);
+
+            //app.UpdateQualityAI(Items);
 
             System.Console.ReadKey();
 
         }
 
-        public void UpdateQuality()
+        public void UpdateQuality(IList<Item> Items)
         {
-            for (var i = 0; i < Items.Count; i++)
+            ManageDecreaseSellIn(Items);
+
+            ManageCommonItems(Items);
+
+            ManageBries(Items);
+
+            ManageBackstagePasses(Items);
+
+        }
+
+        private static void ManageBackstagePasses(IList<Item> Items)
+        {
+            var BackstagePasses = Items.Where(i => i.Name == "Backstage passes to a TAFKAL80ETC concert");
+            foreach (var item in BackstagePasses)
             {
-                if (Items[i].Name != "Aged Brie" && Items[i].Name != "Backstage passes to a TAFKAL80ETC concert")
+                if (item.SellIn < 0)
                 {
-                    if (Items[i].Quality > 0)
-                    {
-                        if (Items[i].Name != "Sulfuras, Hand of Ragnaros")
-                        {
-                            Items[i].Quality = Items[i].Quality - 1;
-                        }
-                    }
+                    item.Quality = 0;
                 }
                 else
                 {
-                    if (Items[i].Quality < 50)
-                    {
-                        Items[i].Quality = Items[i].Quality + 1;
-
-                        if (Items[i].Name == "Backstage passes to a TAFKAL80ETC concert")
-                        {
-                            if (Items[i].SellIn < 11)
-                            {
-                                if (Items[i].Quality < 50)
-                                {
-                                    Items[i].Quality = Items[i].Quality + 1;
-                                }
-                            }
-
-                            if (Items[i].SellIn < 6)
-                            {
-                                if (Items[i].Quality < 50)
-                                {
-                                    Items[i].Quality = Items[i].Quality + 1;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (Items[i].Name != "Sulfuras, Hand of Ragnaros")
-                {
-                    Items[i].SellIn = Items[i].SellIn - 1;
-                }
-
-                if (Items[i].SellIn < 0)
-                {
-                    if (Items[i].Name != "Aged Brie")
-                    {
-                        if (Items[i].Name != "Backstage passes to a TAFKAL80ETC concert")
-                        {
-                            if (Items[i].Quality > 0)
-                            {
-                                if (Items[i].Name != "Sulfuras, Hand of Ragnaros")
-                                {
-                                    Items[i].Quality = Items[i].Quality - 1;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            Items[i].Quality = Items[i].Quality - Items[i].Quality;
-                        }
-                    }
-                    else
-                    {
-                        if (Items[i].Quality < 50)
-                        {
-                            Items[i].Quality = Items[i].Quality + 1;
-                        }
-                    }
+                    if (item.Quality < 50) item.Quality++;
+                    if (item.SellIn < 10 && item.Quality < 50) item.Quality++;
+                    if (item.SellIn < 5 && item.Quality < 50) item.Quality++;
                 }
             }
         }
 
-    }
+        private static void ManageBries(IList<Item> Items)
+        {
+            var Bries = Items.Where(i => i.Name == "Aged Brie");
+            foreach (var item in Bries)
+            {
+                if (item.Quality < 50)
+                {
+                    item.Quality++;
+                }
+                if (item.SellIn < 0 && item.Quality < 50)
+                {
+                    item.Quality++;
+                }
+            }
+        }
 
-    public class Item
-    {
-        public string Name { get; set; }
+        private static void ManageCommonItems(IList<Item> Items)
+        {
+            var commonItems = Items.Where(i =>
+                            i.Name != "Aged Brie" &&
+                            i.Name != "Backstage passes to a TAFKAL80ETC concert" &&
+                            i.Name != "Sulfuras, Hand of Ragnaros");
 
-        public int SellIn { get; set; }
+            foreach (var item in commonItems)
+            {
+                if (item.Quality > 0)
+                {
+                    item.Quality--;
+                }
+                if (item.SellIn < 0 && item.Quality > 0)
+                {
+                    item.Quality--;
+                }
+            }
+        }
 
-        public int Quality { get; set; }
+        private static void ManageDecreaseSellIn(IList<Item> Items)
+        {
+            var decreaseSellIn = Items.Where(i => i.Name != "Sulfuras, Hand of Ragnaros");
+            foreach (var item in decreaseSellIn)
+            {
+                item.SellIn--;
+            }
+        }
+
+        private static void UpdateQualityAI(IList<Item> items)
+        {
+            // Una sola pasada por la lista: Máximo rendimiento, cero memoria extra
+            foreach (var item in items)
+            {
+                // 1. Modificar el SellIn (Regla general)
+                if (item.Name != "Sulfuras, Hand of Ragnaros")
+                {
+                    item.SellIn--;
+                }
+
+                // 2. Modificar la Calidad según el tipo de artículo (Pattern Matching de C#)
+                switch (item.Name)
+                {
+                    case "Aged Brie":
+                        if (item.Quality < 50) item.Quality++;
+                        if (item.SellIn < 0 && item.Quality < 50) item.Quality++;
+                        break;
+
+                    case "Backstage passes to a TAFKAL80ETC concert":
+                        // Aquí el orden del SellIn coincide exactamente con el original
+                        if (item.SellIn < 0)
+                        {
+                            item.Quality = 0;
+                        }
+                        else
+                        {
+                            if (item.Quality < 50) item.Quality++;
+                            if (item.SellIn < 10 && item.Quality < 50) item.Quality++;
+                            if (item.SellIn < 5 && item.Quality < 50) item.Quality++;
+                        }
+                        break;
+
+                    case "Sulfuras, Hand of Ragnaros":
+                        // No hace nada, es inmuta ble
+                        break;
+
+                    default: // Artículos comunes
+                        if (item.Quality > 0) item.Quality--;
+                        if (item.SellIn < 0 && item.Quality > 0) item.Quality--;
+                        break;
+                }
+            }
+        }
     }
 }
+
+    
