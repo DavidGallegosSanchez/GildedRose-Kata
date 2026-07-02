@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace GildedRose.Domain.Models
 {
@@ -31,14 +29,9 @@ namespace GildedRose.Domain.Models
         public Item Build()
         {
             if (string.IsNullOrEmpty(_name))
-                throw new InvalidOperationException("The Item should have name.");
+                throw new InvalidOperationException("The Item must have a name.");
 
-            return new Item
-            {
-                Name = _name,
-                SellIn = _sellIn,
-                Quality = _quality
-            };
+            return new Item (_name, _sellIn, _quality);
         }
     }
 }
